@@ -2,7 +2,7 @@ version: "3.8"
 
 services:
   kafka1:
-    image: bitnami/kafka:latest
+    image: confluentinc/cp-kafka:7.5.0
     container_name: kafka1
     ports:
       - "19094:9094"
@@ -24,7 +24,7 @@ services:
       - kafka1_data:/bitnami/kafka
 
   kafka2:
-    image: bitnami/kafka:latest
+    image: confluentinc/cp-kafka:7.5.0
     container_name: kafka2
     ports:
       - "29094:9094"
@@ -46,7 +46,7 @@ services:
       - kafka2_data:/bitnami/kafka
 
   kafka3:
-    image: bitnami/kafka:latest
+    image: confluentinc/cp-kafka:7.5.0
     container_name: kafka3
     ports:
       - "39094:9094"
