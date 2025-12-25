@@ -1,0 +1,42 @@
+docker volume create bigdata-network
+
+docker compose exec -it namenode /bin/bash
+echo "Hello Spark on Hadoop and YARN. Spark is great for big data." > /tmp/test_data.txt
+hdfs dfs -mkdir -p /user/spark
+hdfs dfs -put /tmp/test_data.txt /user/spark/
+hdfs dfs -chmod -R 777 /user/spark
+
+
+docker compose exec spark-client spark-submit \
+  --master yarn \
+  --deploy-mode client \
+  --conf spark.yarn.resource.manager.hostname=resourcemanager \
+  --num-executors 4 \
+  --executor-cores 1 \
+  --executor-memory 2g \
+  /opt/spark-apps/simple_spark_app.py \
+  /user/spark/test_data.txt
+
+docker compose exec -it namenode /bin/bash
+hdfs dfs -mkdir /spark-logs
+hdfs dfs -chmod -R 777 /
+
+docker compose exec spark-client spark-submit \
+  --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.0 \
+  --master yarn \
+  --deploy-mode client \
+  --conf spark.yarn.resource.manager.hostname=resourcemanager \
+  --conf spark.eventLog.enabled=true \
+  --conf spark.eventLog.dir=hdfs:///spark-logs \
+  --conf spark.history.fs.logDirectory=hdfs:///spark-logs \
+  --conf spark.sql.adaptive.enabled=true \
+  --conf spark.sql.adaptive.coalescePartitions.enabled=true \
+  --conf spark.streaming.backpressure.enabled=true \
+  --conf spark.sql.shuffle.partitions=24 \
+  /opt/spark-apps/nginx_log_analyzer.py
+
+while true; do
+  path=$(shuf -n1 -e / /home /login /api/data /products?id=1 /products?id=2)
+  curl -s "http://localhost:80$path"
+  sleep 1
+done
