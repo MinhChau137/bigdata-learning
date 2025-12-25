@@ -5,10 +5,6 @@ data/
 # OS
 .DS_Store
 
-# Env
-.env
-*.env
-
 # IDE
 .vscode/
 .idea/
