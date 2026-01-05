@@ -1,3 +1,4 @@
+version: "3.8"
 
 services:
   zookeeper:
@@ -6,15 +7,8 @@ services:
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
-      ALLOW_ANONYMOUS_LOGIN: no
-      ZOO_ENABLE_AUTH: yes
-      ZOO_SERVER_USERS: kafka
-      ZOO_SERVER_PASSWORDS: kafka-secret
-      JVMFLAGS: -Djava.security.auth.login.config=/opt/bitnami/zookeeper/conf/zookeeper_jaas.conf
     ports:
       - "2181:2181"
-    volumes:
-      - ./zookeeper_jaas.conf:/opt/bitnami/zookeeper/conf/zookeeper_jaas.conf
 
   kafka1:
     image: confluentinc/cp-kafka:7.5.0
@@ -22,28 +16,32 @@ services:
     depends_on:
       - zookeeper
     ports:
-      - "19092:9092"
+      - "19092:19092"
     volumes:
-      - ./kafka_server_jaas.conf:/etc/kafka/kafka_server_jaas.conf
-      - ./zookeeper_jaas.conf:/etc/kafka/zookeeper_jaas.conf
+      - ./secrets:/etc/kafka/secrets
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      
+      # Giao thức kết nối: Nội bộ dùng PLAINTEXT, Bên ngoài dùng SASL_SSL
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,SASL_SSL:SASL_SSL
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka1:9092,SASL_SSL://localhost:19092
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
 
-      KAFKA_LISTENERS: SASL_PLAINTEXT://0.0.0.0:9092
-      KAFKA_ADVERTISED_LISTENERS: SASL_PLAINTEXT://kafka1:9092
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: SASL_PLAINTEXT:SASL_PLAINTEXT
-      KAFKA_INTER_BROKER_LISTENER_NAME: SASL_PLAINTEXT
+      # Cấu hình SSL
+      KAFKA_SSL_KEYSTORE_LOCATION: /etc/kafka/secrets/kafka1.keystore.jks
+      KAFKA_SSL_KEYSTORE_PASSWORD: 123456
+      KAFKA_SSL_KEY_PASSWORD: 123456
+      KAFKA_SSL_TRUSTSTORE_LOCATION: /etc/kafka/secrets/kafka.truststore.jks
+      KAFKA_SSL_TRUSTSTORE_PASSWORD: 123456
+      KAFKA_SSL_ENDPOINT_IDENTIFICATION_ALGORITHM: "" # Tắt kiểm tra hostname để dễ làm lab
 
+      # Cấu hình SASL & ACL
       KAFKA_SASL_ENABLED_MECHANISMS: SCRAM-SHA-256
-      KAFKA_SASL_MECHANISM_INTER_BROKER_PROTOCOL: SCRAM-SHA-256
-
       KAFKA_AUTHORIZER_CLASS_NAME: kafka.security.authorizer.AclAuthorizer
       KAFKA_ALLOW_EVERYONE_IF_NO_ACL_FOUND: "false"
       KAFKA_SUPER_USERS: User:admin
-
-      KAFKA_OPTS: "-Djava.security.auth.login.config=/etc/kafka/kafka_server_jaas.conf"
-      ZOOKEEPER_OPTS: "-Djava.security.auth.login.config=/etc/kafka/zookeeper_jaas.conf"
+      KAFKA_OPTS: "-Djava.security.auth.login.config=/etc/kafka/secrets/kafka_server_jaas.conf"
 
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
@@ -55,28 +53,28 @@ services:
     depends_on:
       - zookeeper
     ports:
-      - "29092:9092"
+      - "29092:29092"
     volumes:
-      - ./kafka_server_jaas.conf:/etc/kafka/kafka_server_jaas.conf
-      - ./zookeeper_jaas.conf:/etc/kafka/zookeeper_jaas.conf
+      - ./secrets:/etc/kafka/secrets
     environment:
       KAFKA_BROKER_ID: 2
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,SASL_SSL:SASL_SSL
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka2:9092,SASL_SSL://localhost:29092
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
 
-      KAFKA_LISTENERS: SASL_PLAINTEXT://0.0.0.0:9092
-      KAFKA_ADVERTISED_LISTENERS: SASL_PLAINTEXT://kafka2:9092
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: SASL_PLAINTEXT:SASL_PLAINTEXT
-      KAFKA_INTER_BROKER_LISTENER_NAME: SASL_PLAINTEXT
+      KAFKA_SSL_KEYSTORE_LOCATION: /etc/kafka/secrets/kafka2.keystore.jks
+      KAFKA_SSL_KEYSTORE_PASSWORD: 123456
+      KAFKA_SSL_KEY_PASSWORD: 123456
+      KAFKA_SSL_TRUSTSTORE_LOCATION: /etc/kafka/secrets/kafka.truststore.jks
+      KAFKA_SSL_TRUSTSTORE_PASSWORD: 123456
+      KAFKA_SSL_ENDPOINT_IDENTIFICATION_ALGORITHM: ""
 
       KAFKA_SASL_ENABLED_MECHANISMS: SCRAM-SHA-256
-      KAFKA_SASL_MECHANISM_INTER_BROKER_PROTOCOL: SCRAM-SHA-256
-
       KAFKA_AUTHORIZER_CLASS_NAME: kafka.security.authorizer.AclAuthorizer
       KAFKA_ALLOW_EVERYONE_IF_NO_ACL_FOUND: "false"
       KAFKA_SUPER_USERS: User:admin
-
-      KAFKA_OPTS: "-Djava.security.auth.login.config=/etc/kafka/kafka_server_jaas.conf"
-      ZOOKEEPER_OPTS: "-Djava.security.auth.login.config=/etc/kafka/zookeeper_jaas.conf"
+      KAFKA_OPTS: "-Djava.security.auth.login.config=/etc/kafka/secrets/kafka_server_jaas.conf"
 
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
@@ -88,29 +86,42 @@ services:
     depends_on:
       - zookeeper
     ports:
-      - "39092:9092"
+      - "39092:39092"
     volumes:
-      - ./kafka_server_jaas.conf:/etc/kafka/kafka_server_jaas.conf
-      - ./zookeeper_jaas.conf:/etc/kafka/zookeeper_jaas.conf
+      - ./secrets:/etc/kafka/secrets
     environment:
       KAFKA_BROKER_ID: 3
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,SASL_SSL:SASL_SSL
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka3:9092,SASL_SSL://localhost:39092
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
 
-      KAFKA_LISTENERS: SASL_PLAINTEXT://0.0.0.0:9092
-      KAFKA_ADVERTISED_LISTENERS: SASL_PLAINTEXT://kafka3:9092
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: SASL_PLAINTEXT:SASL_PLAINTEXT
-      KAFKA_INTER_BROKER_LISTENER_NAME: SASL_PLAINTEXT
+      KAFKA_SSL_KEYSTORE_LOCATION: /etc/kafka/secrets/kafka3.keystore.jks
+      KAFKA_SSL_KEYSTORE_PASSWORD: 123456
+      KAFKA_SSL_KEY_PASSWORD: 123456
+      KAFKA_SSL_TRUSTSTORE_LOCATION: /etc/kafka/secrets/kafka.truststore.jks
+      KAFKA_SSL_TRUSTSTORE_PASSWORD: 123456
+      KAFKA_SSL_ENDPOINT_IDENTIFICATION_ALGORITHM: ""
 
       KAFKA_SASL_ENABLED_MECHANISMS: SCRAM-SHA-256
-      KAFKA_SASL_MECHANISM_INTER_BROKER_PROTOCOL: SCRAM-SHA-256
-
       KAFKA_AUTHORIZER_CLASS_NAME: kafka.security.authorizer.AclAuthorizer
       KAFKA_ALLOW_EVERYONE_IF_NO_ACL_FOUND: "false"
       KAFKA_SUPER_USERS: User:admin
-
-      KAFKA_OPTS: "-Djava.security.auth.login.config=/etc/kafka/kafka_server_jaas.conf"
-      ZOOKEEPER_OPTS: "-Djava.security.auth.login.config=/etc/kafka/zookeeper_jaas.conf"
+      KAFKA_OPTS: "-Djava.security.auth.login.config=/etc/kafka/secrets/kafka_server_jaas.conf"
 
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 2
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: kafka-ui
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./secrets:/etc/kafka/secrets
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local-secure
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka1:9092,kafka2:9092,kafka3:9092
+      # Kafka UI kết nối nội bộ qua Docker Network nên dùng port 9092 (PLAINTEXT) 
+      # để đơn giản hóa việc quản lý nếu bạn chưa muốn cài đặt SSL cho UI ngay.
