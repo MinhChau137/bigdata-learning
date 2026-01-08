@@ -133,6 +133,7 @@
   become: yes
   vars:
     ssh_key_file: "/home/{{ hadoop_user }}/.ssh/id_ed25519"
+
   tasks:
     - name: Ensure .ssh directory exists for hadoop user
       file:
@@ -142,33 +143,41 @@
         group: "{{ hadoop_user }}"
         mode: "0700"
 
+    # 1) Generate keypair on NameNode (run once, delegated)
     - name: Generate SSH key on NameNode (if not exists)
-      when: inventory_hostname == groups['namenode'][0]
       become_user: "{{ hadoop_user }}"
       openssh_keypair:
         path: "{{ ssh_key_file }}"
         type: ed25519
-        comment: "{{ hadoop_user }}@{{ inventory_hostname }}"
+        comment: "{{ hadoop_user }}@{{ groups['namenode'][0] }}"
         mode: "0600"
-      register: ssh_keygen_result
+      delegate_to: "{{ groups['namenode'][0] }}"
+      run_once: true
 
+    # 2) Read NameNode pubkey (run once, delegated)
     - name: Read NameNode public key
-      when: inventory_hostname == groups['namenode'][0]
       become_user: "{{ hadoop_user }}"
       slurp:
         src: "{{ ssh_key_file }}.pub"
       register: namenode_pubkey
-
-    - name: Set fact with decoded pubkey (only once, globally)
-      set_fact:
-        hadoop_pubkey_decoded: "{{ namenode_pubkey.content | b64decode }}"
-      when: inventory_hostname == groups['namenode'][0]
+      delegate_to: "{{ groups['namenode'][0] }}"
       run_once: true
 
+    # 3) Store decoded pubkey globally on localhost (so all hosts can read it)
+    - name: Store decoded pubkey globally on localhost
+      set_fact:
+        hadoop_pubkey_decoded: "{{ namenode_pubkey.content | b64decode }}"
+      delegate_to: localhost
+      delegate_facts: true
+      run_once: true
+
+    # 4) Add to authorized_keys on every node
     - name: Add NameNode public key to all nodes' authorized_keys
-      authorized_key:
+      ansible.posix.authorized_key:
         user: "{{ hadoop_user }}"
-        key: "{{ hostvars[groups['namenode'][0]].hadoop_pubkey_decoded }}"
+        state: present
+        key: "{{ hostvars['localhost'].hadoop_pubkey_decoded }}"
+
 
 - name: Hadoop Cluster | Format HDFS (NameNode only, one-time)
   hosts: namenode
